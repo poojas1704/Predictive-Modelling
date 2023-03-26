@@ -1,0 +1,296 @@
+---
+title: 'PS8: Predictive Modelling'
+author: "Pooja Sadarangani"
+date: "2022-12-04"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Collaborators: Pranali Oza
+
+# 1 Is COMPAS fair?
+
+## 1. (2pt) Load the COMPAS data, and perform a basic sanity checks.
+
+```{r}
+compas <- read.delim("compas-score-data.csv.bz2")
+dim(compas)
+head(compas)
+colnames(compas)
+
+any(is.na("age") || is.na("c_charge_degree") || is.na("race") || is.na("age_cat") || is.na("sex") || is.na("priors_count") || is.na("decile_score") || is.na("two_year_recid"))
+```
+
+## Sanity check is performed, there are no NA values in the data set.
+
+## 2. (2pt) Filter the data to keep only only Caucasians and African-Americans.
+
+```{r}
+library(tidyverse)
+library(dplyr)
+cauc_afr <- c('Caucasian', 'African-American')
+compas_cauc_afr <- filter(compas, compas$race %in% cauc_afr)
+unique(compas_cauc_afr$race)
+```
+
+## 3. (2pt) Create a new dummy variable based off of COMPAS risk score (decile_score), which indicates if an individual was classified as low risk (score 1-4) or high risk (score 5-10).
+
+```{r}
+compas_cauc_afr<- compas_cauc_afr %>% mutate(risk_level = case_when(decile_score %in% 1:4 ~ "low risk", decile_score %in% 5:10 ~ "high risk"))
+
+head(compas_cauc_afr)
+```
+## 4. (4pt) Now analyze the offenders across this new risk category:
+##(a) What is the recidivism rate for low-risk and high-risk individuals?
+##(b) What are the recidivism rates for African-Americans and Caucasians?
+
+## Recidivism Rate for low risk individuals
+```{r}
+rate_lr <- nrow(filter(compas_cauc_afr, risk_level=="low risk" & priors_count>1))/nrow(filter(compas_cauc_afr, risk_level=="low risk"))
+rate_lr
+```
+## The recidivists rate for low risk individuals is 0.3519797
+
+## Recidivism Rate for high risk individuals
+```{r}
+rate_hr <- nrow(filter(compas_cauc_afr, risk_level=="high risk" & priors_count>1))/nrow(filter(compas_cauc_afr, risk_level=="high risk"))
+rate_hr
+```
+
+## The recidivists rate for high risk individuals is 0.6689109
+
+## Recidivism Rate for African-American individuals
+```{r}
+rate_afr <- nrow(filter(compas_cauc_afr, race=="African-American" & priors_count>1))/nrow(filter(compas_cauc_afr, race=="African-American"))
+rate_afr
+```
+## The recidivists rate for Caucasian individuals is 0.5625197
+
+## Recidivism Rate for Caucasian individuals
+```{r}
+rate_cauc <- nrow(filter(compas_cauc_afr, race=="Caucasian" & priors_count>1))/nrow(filter(compas_cauc_afr, race=="Caucasian"))
+rate_cauc
+```
+## The recidivists rate for African-American individuals is 0.4146457
+
+## 5. (5 pt) Now create a confusion matrix comparing COMPAS predictions for recidivism (is/is not low risk) and the actual two-year recidivism and interpret the results. To keep things coherent, let’s call recidivists “positive”.
+
+```{r}
+table(compas_cauc_afr$two_year_recid, compas_cauc_afr$risk_level)
+```
+
+## According to the above results, we can make the following interpretations:
+## No. of true positives = 1602. This means 1602 recidivists were correctly classified as high risk
+## No. of false positives = 881. This means that 881 recidivists were falsely classified as low risk
+## No. of true negatives = 1872. This means that 1872 not recidivists were correctly classified as low risk
+## ## No. of false negatives = 923. This means that 923 recidivists were falsely classified as high risk
+
+## 6. (10pt) Note the accuracy of the COMPAS classification, and also how its errors were distributed. Would you feel comfortable having a judge use COMPAS to inform your sentencing guidelines? At what point would the error/misclassification risk be acceptable for you?
+
+
+```{r}
+accuracy = (1602+1872)/(1602+1872+923+881)
+accuracy
+
+errors <- 1-accuracy
+
+cat("The error is", errors)
+precision = 1602/(1602+881)
+precision
+
+recall = 1602/(1602+923)
+recall
+```
+
+## The accuracy of COMPAS classification is 65.82039%
+## The precision of COMPAS classification is 0.6451873
+## The recall of COMPAS classification is 0.6344554
+## I would not feel comfortable having a judge use COMPAS to inform sentencing guidelines because as we can see, the accuracy is only 65% for a decision whhich affect someone's enitre life. While humans are prone to making errors as well, jury can provide varied views and eliminate biases. Also, judges have the human intelligence to consider other factors as well, along with those mentioned in question such as inevitable conditions like self-defense or blackmailings. 
+
+## 7. (15pt) Now, you repeat your confusion matrix calculation and analysis from 5. But this time do it separately for African-Americans and for Caucasians:
+##(a) How accurate is the COMPAS classification for African-American individuals? For Caucasians?
+##(b) What are the false positive rates FPR=FP/N=FP/(FP+TN)?
+##(c) The false negative rates FNR=FN/P=FN/(FN+TP)?
+
+## Confusion Matrix for race="African-American"
+```{r}
+afram <- filter(compas_cauc_afr, race=="African-American")
+table(afram$risk_level, afram$two_year_recid)
+```
+```{r}
+#Metrics::accuracy(afram$two_year_recid, afram$risk_level)
+accuracy_afr = (1188+873)/(1188+641+873+473)
+accuracy_afr
+```
+
+## The accuracy of COMPAS for African-American individals is 64.91339%
+```{r}
+FPR_arf = 641/(641+873)
+FPR_arf
+
+TPR_arf = 1188/(1188+473)
+TPR_arf
+```
+
+
+```{r}
+FNR_arf = 473/(473+1188)
+FNR_arf
+
+TNR_arf = 873/(873+641)
+TNR_arf
+```
+
+
+
+## Confusion Matrix for race="Caucasian"
+```{r}
+cauc <- filter(compas_cauc_afr, race=="Caucasian")
+table(cauc$two_year_recid, cauc$risk_level)
+```
+
+```{r}
+#Metrics::accuracy(compas_cauc_afr$two_year_recid, compas_cauc_afr$race=="Caucasian")
+accuracy_cauc = (414+999)/(414+282+999+408)
+accuracy_cauc
+```
+
+## The accuracy of COMPAS for Caucasian individals is 67.18973%
+
+```{r}
+FPR_cauc = 282/(999+282)
+FPR_cauc
+
+TPR_cauc = 414/(414+408)
+TPR_cauc
+```
+
+```{r}
+FNR_cauc = 408/(408+414)
+FNR_cauc
+
+TNR_cauc = 999/(999+282)
+TNR_cauc
+```
+
+## 8. (10pt) If you have done this correctly, you will find that COMPAS’s true negative and true positive percentages are similar for African-American and Caucasian individuals, but that false positive rates and false negative rates are different. Look again at the overall recidivism rates in the dataset for Black and White individuals. In your opinion, is the COMPAS algorithm ’fair’? Justify your answer.
+
+## Ans. In my opinion, the COMPAS algorithm is not 'fair', because  a lot of data has been incorrectly classified. Hundreds of cases have been falsely identified therefore, I don't this this algorithm is fair. And using factors such as 'sex' and 'race' could develop biases in the algorithm, being unfair to certain communities in the long-run.
+
+# 2 Make your own COMPAS!
+
+## 1. (4pt) You should not use variables score_text, decile_score and two_year_recid.Explain why!
+
+## Ans. These are the variables that we need to predict, thus we cannot use them as a predictor.  
+
+## 2. (6pt) Before we start: what do you think, what is an appropriate model performance measure for this task? A, P, R, For something else? Maybe you want to report multiple measures? Explain!
+
+## Ans. In my opinion, all three factors (A,P,R) are crucial. Accuracy would help us determine how many cases ave been correctly identified. However, this would not be an appropriate performance measure if number of true cases and false cases are imbalance. In such cases, it would be better to rely on precision and recall. Precision will tell us how many positive cases have been correcly identified. And recall will tell us how many positive class predictions have been made from positive dataset
+
+## 3. (6pt) Split your data into training and validation set. Develop a model on the training set and compute its performance on validation set. Tweak your model to get as good performance as you can get. Report the performance.
+
+```{r}
+data <- select(compas_cauc_afr, c(age, sex, race , priors_count, two_year_recid))
+names(data)
+#data <- data %>% mutate(prior_count_level = case_when(data$priors_count > 1 ~ 1
+                                              #data$priors_count <= 1 ~ 0))
+```
+```{r}
+df = sort(sample(nrow(data), nrow(data)*.7))
+
+train <- data[df,]
+validate <- data[-df,]
+
+#colnames(validate)
+#colnames(train)
+
+nrow(train)
+nrow(train)
+dim(train)
+dim(validate)
+
+self_model_1 <- glm(two_year_recid ~ age + priors_count, data = train, family = binomial())
+summary(self_model_1)
+
+#validate <- validate %>% mutate(pred_sm1 = predict(self_model_1, newdata = validate))
+#names(validate)
+pred_sm1 = predict(self_model_1, newdata = validate)
+
+
+results1 <- ifelse(pred_sm1 > 0.5,1,0)
+misClasificError1 <- mean(results1 != validate$two_year_recid)
+
+table(results1, validate$two_year_recid)
+#rmse <- sqrt(mean((validate$pred_sm1-validate$priors_count)^2))
+#rmse
+
+```
+
+```{r}
+acc1 <- (790+229)/(790+229+70+495)
+cat("The accuracy of model 1 is:", acc1)
+``` 
+
+
+
+## 4. (3pt) Add sex to the model. Does it help to improve the performance? And by “improve” we mean not just a tiny bit.
+
+```{r}
+self_model_2 <- glm(two_year_recid ~ age + priors_count +  sex, data = train, family = binomial())
+summary(self_model_2)
+
+#validate <- validate %>% mutate(pred_sm2 = predict(self_model_2, newdata = validate))
+#names(validate)
+#rmse <- sqrt(mean((validate$pred_sm2-validate$priors_count)^2))
+#rmse
+
+pred_sm2 = predict(self_model_2, newdata = validate)
+
+
+results2 <- ifelse(pred_sm2 > 0.5,1,0)
+misClasificError2 <- mean(results2 != validate$two_year_recid)
+
+table(results2, validate$two_year_recid)
+```
+
+```{r}
+acc2 = (781+233)/(781+233+79+491)
+cat("The accuracy of model 2 is:", acc2)
+```
+## From the above result, we can tell that the accuracy has not improved.
+
+## 5. (3pt) And finally add race. Does the model improve?
+
+```{r}
+self_model_3 <- glm(two_year_recid ~ age + priors_count + sex + race, data=train, family=binomial())
+summary(self_model_3)
+
+#validate <- validate %>% mutate(pred_sm3 = predict(self_model_3, newdata = validate))
+#names(validate)
+#rmse <- sqrt(mean((validate$pred_sm3-validate$priors_count)^2))
+#rmse
+
+pred_sm3 = predict(self_model_3, newdata = validate)
+
+
+results3 <- ifelse(pred_sm3 > 0.5,1,0)
+misClasificError3 <- mean(results3 != validate$two_year_recid)
+
+table(results3, validate$two_year_recid)
+```
+
+```{r}
+acc3 = (778+241)/(778+241+483+82)
+cat("The accuracy of model 1 is:", acc3)
+```
+## From the above results, we can tell that the accuracy has not changed.
+
+## 6. (8pt) Discuss the results. Did you manage to get as good results as COMPAS? Did you manage to do even better? Does gender and race help to improve your predictions? What should judges do when having access to such models? Should they use those?
+
+## The accuracy of my model was a little lesser than that of COMPAS. Gender and Race did not help me in improving the model prodections. Judges must not use these models as they can be harmful and introduce biases in the system. Although race and gender did not have much effect in model predictions, having a lot of data could lead to these factors having some impact in the output. 
+
